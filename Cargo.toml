@@ -1,0 +1,24 @@
+[package]
+name = "noctis-native"
+version = "0.1.0"
+authors = ["Adrien Navratil <adrien1975@live.fr>"]
+description = "Universal access over platform-native UI-related API"
+documentation = "https://libnoctis.github.io/noctis-native/"
+readme = "README.md"
+keywords = ["windowing", "native"]
+categories = ["gui"]
+license = "MIT"
+repository = "https://github.com/libnoctis/noctis-native"
+
+[dependencies]
+log = "0.4"
+env_logger = "0.5.12"
+winit = "0.17.2"
+
+[target."cfg(target_os = \"macos\")".dependencies.cocoa]
+git = "https://github.com/servo/core-foundation-rs"
+rev = "1a156546b15258a28a42dfd9e5d4fbb1f09f7187"
+
+[target."cfg(target_os = \"windows\")".dependencies.winapi]
+version = "0.3.5"
+features = ["winuser"]

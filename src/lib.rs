@@ -3,6 +3,10 @@ extern crate winit;
 #[cfg(target_os = "macos")]
 extern crate cocoa;
 
+#[cfg(target_os = "macos")]
+#[macro_use]
+extern crate objc;
+
 pub mod platform;
 
 use winit::{Event, WindowEvent, EventsLoop, ControlFlow};
@@ -87,6 +91,7 @@ impl Window {
     }
 
     pub fn set_titlebar_big(&mut self, big: bool) {
+        self.set_title_displayed(false);
         self.window.set_titlebar_big(big)
     }
 

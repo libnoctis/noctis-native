@@ -1,6 +1,7 @@
 extern crate winit;
 
 #[cfg(target_os = "macos")]
+#[macro_use]
 extern crate cocoa;
 
 #[cfg(target_os = "macos")]

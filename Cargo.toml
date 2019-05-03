@@ -11,12 +11,13 @@ license = "MIT"
 repository = "https://github.com/libnoctis/noctis-native"
 
 [dependencies]
-log = "0.4"
-env_logger = "0.5.12"
-winit = "0.17.2"
+log = "0.4.6"
+env_logger = "0.6.1"
+winit = "0.19.1"
 
 [target."cfg(target_os = \"macos\")".dependencies.cocoa]
-version = "0.18.4"
+git = "https://github.com/servo/core-foundation-rs"
+rev = "965cc88a913f4923d2f2ceb506dbe34111caaeea"
 
 [target."cfg(target_os = \"macos\")".dependencies.objc]
 version = "0.2.6"

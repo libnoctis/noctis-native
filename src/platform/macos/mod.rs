@@ -1,5 +1,4 @@
-use objc::declare::ClassDecl;
-use objc::runtime::{Object, Sel, objc_release, Protocol};
+use objc::runtime::{Object, Sel, objc_release};
 
 use cocoa::base::{id, YES, NO, nil};
 use cocoa::foundation::NSString;
@@ -85,10 +84,6 @@ impl Window {
             if big {
                 add_toolbar(self.ns_window());
 
-                let protocol = Protocol::get("NSWindowDelegate").unwrap();
-                let superclass = class!(NSObject);
-                let mut decl = ClassDecl::new("NoctisWindowDelegate", superclass).unwrap();
-
                 extern fn on_enter_fullscreen(this: &Object, _cmd: Sel, _notification: id) {
                     unsafe {
                         let window: id = *this.get_ivar("window");
@@ -107,20 +102,13 @@ impl Window {
                     }
                 }
 
-                decl.add_ivar::<id>("window");
-                decl.add_ivar::<id>("view");
+                self.ns_window().setDelegate_(delegate!("NoctisWindowDelegate", {
+                    window: id = self.ns_window(),
+                    view: id = self.window.get_nsview() as id,
 
-                decl.add_method(sel!(windowWillEnterFullScreen:), on_enter_fullscreen as extern fn(&Object, Sel, id));
-                decl.add_method(sel!(windowDidEnterFullScreen:), on_did_enter_fullscreen as extern fn(&Object, Sel, id));
-
-                let cl = decl.register();
-                cl.conforms_to(protocol);
-
-                let delegate: id = msg_send![cl, alloc];
-                (*delegate).set_ivar("window", self.ns_window());
-                (*delegate).set_ivar("view", self.window.get_nsview() as id);
-
-                self.ns_window().setDelegate_(delegate);
+                    (windowWillEnterFullScreen:) => on_enter_fullscreen as extern fn(&Object, Sel, id),
+                    (windowDidEnterFullScreen:) => on_did_enter_fullscreen as extern fn(&Object, Sel, id)
+                }));
             } else {
                 let window = self.ns_window();
                 let tb = window.toolbar();

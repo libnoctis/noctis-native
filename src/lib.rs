@@ -26,13 +26,7 @@ impl Window {
         let window = winit::Window::new(&events_loop)?;
 
         let mut result = Window {
-            window: platform::Window {
-                window,
-
-                titlebar_big: false,
-                title_displayed: true,
-                content_over_titlebar: false
-            },
+            window: platform::Window::new(window),
             decorated: true,
             title: "".into(),
             events_loop

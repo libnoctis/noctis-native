@@ -1,4 +1,4 @@
-use objc::runtime::{Object, Sel, objc_release};
+use objc::runtime::{Object, Sel, objc_release, Class, class_addMethod, class_addIvar};
 
 use cocoa::base::{id, YES, NO, nil};
 use cocoa::foundation::NSString;
@@ -7,16 +7,35 @@ use cocoa::appkit::{NSWindowStyleMask, NSWindowTitleVisibility, NSToolbar, NSWin
 use winit::os::macos::WindowExt;
 use winit::Window as WinitWindow;
 
+use objc::declare::ClassDecl;
+
+use std::env::Args;
+use std::os::raw::c_void;
+
 pub struct Window {
     pub window: WinitWindow,
 
     // Titlebar
     pub title_displayed: bool,
     pub content_over_titlebar: bool,
-    pub titlebar_big: bool
+    pub titlebar_big: bool,
+
+    delegate: id
 }
 
 impl Window {
+    pub fn new(window: WinitWindow) -> Window {
+        Window {
+            window,
+
+            titlebar_big: false,
+            title_displayed: true,
+            content_over_titlebar: false,
+
+            delegate: nil
+        }
+    }
+
     pub fn enable_content_over(&mut self, enabled: bool) {
         if self.content_over_titlebar == enabled {
             return
@@ -84,31 +103,57 @@ impl Window {
             if big {
                 add_toolbar(self.ns_window());
 
-                extern fn on_enter_fullscreen(this: &Object, _cmd: Sel, _notification: id) {
-                    unsafe {
-                        let window: id = *this.get_ivar("window");
-                        window.setToolbar_(nil);
+                if self.delegate == nil {
+                    let current: &Object = &*self.ns_window().delegate();
+                    let state: *mut c_void = *current.get_ivar("winitState");
+
+                    extern fn on_enter_fullscreen(this: &Object, _cmd: Sel, notification: id) {
+                        unsafe {
+                            let window: id = *this.get_ivar("window");
+                            window.setToolbar_(nil);
+
+                            // TODO: Manage to call winit super class
+
+                            /* Error: SIGSEGV from the *this.get_ivar("winitState"); in the super method ??
+                            let sup = this.class().superclass().unwrap();
+                            sup.instance_method(sel!(windowWillEnterFullScreen:)).unwrap().implementation()();*/
+
+                            // msg_send![sup, windowWillEnterFullScreen:notification] Error: Unknown selector ??
+                        }
                     }
+
+                    extern fn on_did_enter_fullscreen(this: &Object, _cmd: Sel, _notification: id) {
+                        unsafe {
+                            let ns_window: id = *this.get_ivar("window");
+                            let ns_view: id = *this.get_ivar("view");
+
+                            add_toolbar(ns_window);
+
+                            Window::apply_enable_content_over(true, ns_window, ns_view)
+                        }
+                    }
+
+                    // TODO: Better way ? Use delegate! macro ?
+                    let mut decl = objc::declare::ClassDecl::new("NoctisWindowDelegate", class!(WinitWindowDelegate)).unwrap();
+
+                    decl.add_ivar::<id>("window");
+                    decl.add_ivar::<id>("view");
+                    decl.add_ivar::<*mut c_void>("winitState");
+
+                    decl.add_method(sel!(windowWillEnterFullScreen:), on_enter_fullscreen as extern fn(&Object, Sel, id));
+                    decl.add_method(sel!(windowDidEnterFullScreen:), on_did_enter_fullscreen as extern fn(&Object, Sel, id));
+
+                    let cl = decl.register();
+                    let delegate: id = msg_send![cl, alloc];
+
+                    (*delegate).set_ivar("window", self.ns_window());
+                    (*delegate).set_ivar("view", self.window.get_nsview() as id);
+                    (*delegate).set_ivar("winitState", state);
+
+                    self.delegate = delegate;
                 }
 
-                extern fn on_did_enter_fullscreen(this: &Object, _cmd: Sel, _notification: id) {
-                    unsafe {
-                        let ns_window: id = *this.get_ivar("window");
-                        let ns_view: id = *this.get_ivar("view");
-
-                        add_toolbar(ns_window);
-
-                        Window::apply_enable_content_over(true, ns_window, ns_view)
-                    }
-                }
-
-                self.ns_window().setDelegate_(delegate!("NoctisWindowDelegate", {
-                    window: id = self.ns_window(),
-                    view: id = self.window.get_nsview() as id,
-
-                    (windowWillEnterFullScreen:) => on_enter_fullscreen as extern fn(&Object, Sel, id),
-                    (windowDidEnterFullScreen:) => on_did_enter_fullscreen as extern fn(&Object, Sel, id)
-                }));
+                self.ns_window().setDelegate_(self.delegate);
             } else {
                 let window = self.ns_window();
                 let tb = window.toolbar();
@@ -117,6 +162,8 @@ impl Window {
                     window.setToolbar_(nil);
                     objc_release(tb);
                 }
+
+                self.ns_window().setDelegate_(nil);
             }
         }
 
